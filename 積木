@@ -1,0 +1,209 @@
+!DOCTYPE .txt
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Blocks Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: row;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        .sidebar {
+            width: 250px;
+            padding: 20px;
+            background-color: #333;
+            color: white;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .sidebar h2 {
+            margin: 0;
+            font-size: 24px;
+            text-align: center;
+        }
+        .sidebar p {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .sidebar ul {
+            padding-left: 20px;
+        }
+        .toolbar {
+            margin-bottom: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        .toolbar button {
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+        }
+        .toolbar button:hover {
+            background-color: #0056b3;
+        }
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        canvas {
+            border: 2px solid #333;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>遊戲說明</h2>
+        <p>歡迎來到建築方塊遊戲！在這裡，你可以創造自己想像中的建築結構。</p>
+        <p>遊戲操作方法：</p>
+        <ul>
+            <li>使用上方的按鈕新增不同形狀的方塊。</li>
+            <li>拖曳方塊到畫布上的任意位置。</li>
+            <li>使用滑鼠滾輪旋轉選中的積木。</li>
+            <li>點擊「Clear Canvas」清除所有方塊。</li>
+        </ul>
+        <p>現在開始創建吧！</p>
+    </div>
+    <div class="main">
+        <div class="toolbar">
+            <button onclick="addShape('square')">Add Square</button>
+            <button onclick="addShape('rectangle')">Add Rectangle</button>
+            <button onclick="addShape('circle')">Add Circle</button>
+            <button onclick="addShape('triangle')">Add Triangle</button>
+            <button onclick="clearCanvas()">Clear Canvas</button>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const shapes = [];
+
+        let draggingShape = null;
+        let offsetX, offsetY;
+
+        class Shape {
+            constructor(type, x, y, width, height) {
+                this.type = type;
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.rotation = 0; // 旋轉角度（弧度）
+            }
+
+            draw() {
+                ctx.save();
+                // 平移到形狀中心
+                ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+                // 旋轉
+                ctx.rotate(this.rotation);
+                // 畫形狀
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                if (this.type === 'square' || this.type === 'rectangle') {
+                    ctx.rect(-this.width / 2, -this.height / 2, this.width, this.height);
+                } else if (this.type === 'circle') {
+                    ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
+                } else if (this.type === 'triangle') {
+                    ctx.moveTo(-this.width / 2, this.height / 2);
+                    ctx.lineTo(0, -this.height / 2);
+                    ctx.lineTo(this.width / 2, this.height / 2);
+                    ctx.closePath();
+                }
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            isInside(x, y) {
+                const dx = x - (this.x + this.width / 2);
+                const dy = y - (this.y + this.height / 2);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (this.type === 'circle') {
+                    return distance <= this.width / 2;
+                } else {
+                    return Math.abs(dx) <= this.width / 2 && Math.abs(dy) <= this.height / 2;
+                }
+            }
+        }
+
+        function addShape(type) {
+            const size = 50;
+            const x = Math.random() * (canvas.width - size);
+            const y = Math.random() * (canvas.height - size);
+            const width = type === 'rectangle' ? size * 2 : size;
+            const height = size;
+            shapes.push(new Shape(type, x, y, width, height));
+            drawCanvas();
+        }
+
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (const shape of shapes) {
+                shape.draw();
+            }
+        }
+
+        function clearCanvas() {
+            shapes.length = 0;
+            drawCanvas();
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const { offsetX: x, offsetY: y } = e;
+            for (let i = shapes.length - 1; i >= 0; i--) {
+                if (shapes[i].isInside(x, y)) {
+                    draggingShape = shapes[i];
+                    offsetX = x - draggingShape.x;
+                    offsetY = y - draggingShape.y;
+                    shapes.push(shapes.splice(i, 1)[0]); // Bring to front
+                    drawCanvas();
+                    return;
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!draggingShape) return;
+            const { offsetX: x, offsetY: y } = e;
+            draggingShape.x = x - offsetX;
+            draggingShape.y = y - offsetY;
+            drawCanvas();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            draggingShape = null;
+        });
+
+        canvas.addEventListener('mouseout', () => {
+            draggingShape = null;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            if (draggingShape) {
+                draggingShape.rotation += e.deltaY * -0.01; // 滾輪控制旋轉速度
+                drawCanvas();
+            }
+        });
+
+        drawCanvas();
+    </script>
+</body>
+</html>
